@@ -17,7 +17,7 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  const updateStatus = useCallback((chessGame: Chess) => {
+  const updateStatus = (chessGame: Chess) => {
     if (chessGame.isCheckmate()) {
       setStatus(`Checkmate! ${chessGame.turn() === "w" ? "Black" : "White"} wins.`);
     } else if (chessGame.isDraw()) {
@@ -27,27 +27,34 @@ export default function Home() {
     } else {
       setStatus(`${chessGame.turn() === "w" ? "White" : "Black"} to move`);
     }
-  }, []);
+  };
 
-  function onDrop(sourceSquare: string, targetSquare: string) {
+  function makeAMove(move: any) {
+    const gameCopy = new Chess(game.fen());
     try {
-      const gameCopy = new Chess(game.fen());
-      const move = gameCopy.move({
-        from: sourceSquare,
-        to: targetSquare,
-        promotion: "q", // always promote to queen for simplicity
-      });
-
-      if (move) {
+      const result = gameCopy.move(move);
+      if (result) {
         setGame(gameCopy);
-        setMoveHistory((prev) => [...prev, move.san]);
+        setMoveHistory((prev) => [...prev, result.san]);
         updateStatus(gameCopy);
-        return true;
+        return result;
       }
     } catch (e) {
-      return false;
+      return null;
     }
-    return false;
+    return null;
+  }
+
+  function onDrop(sourceSquare: string, targetSquare: string) {
+    const move = makeAMove({
+      from: sourceSquare,
+      to: targetSquare,
+      promotion: "q", // always promote to queen for simplicity
+    });
+
+    // illegal move
+    if (move === null) return false;
+    return true;
   }
 
   function resetGame() {
@@ -79,6 +86,7 @@ export default function Home() {
             position={game.fen()} 
             onPieceDrop={onDrop}
             boardOrientation="white"
+            animationDuration={200}
             customDarkSquareStyle={{ backgroundColor: "#262626" }}
             customLightSquareStyle={{ backgroundColor: "#404040" }}
           />
@@ -114,11 +122,11 @@ export default function Home() {
 
           <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 shadow-xl max-h-[300px] flex flex-col">
             <h2 className="text-sm font-bold uppercase tracking-widest text-neutral-500 mb-4">Move History</h2>
-            <div className="overflow-y-auto flex-1 grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-mono">
+            <div className="overflow-y-auto flex-1 grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-mono text-center">
               {moveHistory.map((move, idx) => (
-                <div key={idx} className="flex gap-2 text-neutral-400">
-                  <span className="text-neutral-600 w-6">{Math.floor(idx / 2) + 1}.</span>
-                  <span className="text-neutral-200">{move}</span>
+                <div key={idx} className="flex gap-2 text-neutral-400 justify-center">
+                  <span className="text-neutral-600 w-6 text-right">{Math.floor(idx / 2) + 1}.</span>
+                  <span className="text-neutral-200 w-12 text-left">{move}</span>
                 </div>
               ))}
             </div>
