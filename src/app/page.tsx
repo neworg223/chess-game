@@ -34,6 +34,11 @@ export default function Home() {
     }
   };
 
+  function onDragStart(piece: string, sourceSquare: string) {
+    setDebugLog(`Drag started: ${piece} from ${sourceSquare}`);
+    return true;
+  }
+
   function onDrop(sourceSquare: string, targetSquare: string) {
     try {
       const game = getGame(fen);
@@ -55,7 +60,7 @@ export default function Home() {
         setDebugLog(`${attemptMsg} (Success)`);
         return true;
       } else {
-        setDebugLog(`${attemptMsg} (Invalid via game rules)`);
+        setDebugLog(`${attemptMsg} (Invalid rule)`);
       }
     } catch (e) {
       setDebugLog(`Error: ${(e as Error).message}`);
@@ -90,11 +95,14 @@ export default function Home() {
         
         {/* Board Container */}
         <div className="w-full max-w-[500px] flex flex-col gap-2">
-          <div className="aspect-square shadow-2xl rounded-lg overflow-hidden border border-neutral-800 bg-[#303030]">
+          {/* Added touch-action: none to prevent scrolling while dragging */}
+          <div className="aspect-square shadow-2xl rounded-lg overflow-hidden border border-neutral-800 bg-[#303030]" style={{ touchAction: 'none' }}>
             <Chessboard 
               position={fen} 
               onPieceDrop={onDrop}
+              onPieceDragBegin={onDragStart}
               boardOrientation="white"
+              arePiecesDraggable={true}
               animationDuration={200}
               customDarkSquareStyle={{ backgroundColor: "#262626" }}
               customLightSquareStyle={{ backgroundColor: "#404040" }}
