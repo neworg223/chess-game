@@ -1,0 +1,7 @@
+name = "chess-game"
+compatibility_date = "2026-01-30"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+[vars]
+# Add any environment variables here

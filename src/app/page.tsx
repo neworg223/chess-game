@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+export const runtime = 'edge';
+
+import React, { useState, useEffect, useCallback } from "react";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 
@@ -8,43 +10,44 @@ export default function Home() {
   const [game, setGame] = useState(new Chess());
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [status, setStatus] = useState("White to move");
+  const [mounted, setMounted] = useState(false);
 
-  function makeAMove(move: any) {
-    try {
-      const result = game.move(move);
-      if (result) {
-        setGame(new Chess(game.fen()));
-        setMoveHistory([...moveHistory, result.san]);
-        updateStatus();
-        return result;
-      }
-    } catch (e) {
-      return null;
+  // Prevent hydration issues
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const updateStatus = useCallback((chessGame: Chess) => {
+    if (chessGame.isCheckmate()) {
+      setStatus(`Checkmate! ${chessGame.turn() === "w" ? "Black" : "White"} wins.`);
+    } else if (chessGame.isDraw()) {
+      setStatus("Draw!");
+    } else if (chessGame.isCheck()) {
+      setStatus(`Check! ${chessGame.turn() === "w" ? "White" : "Black"} to move.`);
+    } else {
+      setStatus(`${chessGame.turn() === "w" ? "White" : "Black"} to move`);
     }
-    return null;
-  }
+  }, []);
 
   function onDrop(sourceSquare: string, targetSquare: string) {
-    const move = makeAMove({
-      from: sourceSquare,
-      to: targetSquare,
-      promotion: "q", // always promote to queen for simplicity
-    });
+    try {
+      const gameCopy = new Chess(game.fen());
+      const move = gameCopy.move({
+        from: sourceSquare,
+        to: targetSquare,
+        promotion: "q", // always promote to queen for simplicity
+      });
 
-    if (move === null) return false;
-    return true;
-  }
-
-  function updateStatus() {
-    if (game.isCheckmate()) {
-      setStatus(`Checkmate! ${game.turn() === "w" ? "Black" : "White"} wins.`);
-    } else if (game.isDraw()) {
-      setStatus("Draw!");
-    } else if (game.isCheck()) {
-      setStatus(`Check! ${game.turn() === "w" ? "White" : "Black"} to move.`);
-    } else {
-      setStatus(`${game.turn() === "w" ? "White" : "Black"} to move`);
+      if (move) {
+        setGame(gameCopy);
+        setMoveHistory((prev) => [...prev, move.san]);
+        updateStatus(gameCopy);
+        return true;
+      }
+    } catch (e) {
+      return false;
     }
+    return false;
   }
 
   function resetGame() {
@@ -55,10 +58,15 @@ export default function Home() {
   }
 
   function undoMove() {
-    game.undo();
-    setGame(new Chess(game.fen()));
-    setMoveHistory(moveHistory.slice(0, -1));
-    updateStatus();
+    const gameCopy = new Chess(game.fen());
+    gameCopy.undo();
+    setGame(gameCopy);
+    setMoveHistory((prev) => prev.slice(0, -1));
+    updateStatus(gameCopy);
+  }
+
+  if (!mounted) {
+    return <div className="min-h-screen bg-neutral-950" />;
   }
 
   return (
@@ -104,7 +112,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 shadow-xl max-h-[250px] flex flex-col">
+          <div className="bg-neutral-900 p-6 rounded-xl border border-neutral-800 shadow-xl max-h-[300px] flex flex-col">
             <h2 className="text-sm font-bold uppercase tracking-widest text-neutral-500 mb-4">Move History</h2>
             <div className="overflow-y-auto flex-1 grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-mono">
               {moveHistory.map((move, idx) => (
