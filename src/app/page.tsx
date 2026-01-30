@@ -7,73 +7,81 @@ import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 
 export default function Home() {
-  const [game, setGame] = useState(new Chess());
+  const [fen, setFen] = useState("start");
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [status, setStatus] = useState("White to move");
   const [mounted, setMounted] = useState(false);
+  const [debugLog, setDebugLog] = useState<string>("Game started");
 
-  // Prevent hydration issues
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const updateStatus = (chessGame: Chess) => {
-    if (chessGame.isCheckmate()) {
-      setStatus(`Checkmate! ${chessGame.turn() === "w" ? "Black" : "White"} wins.`);
-    } else if (chessGame.isDraw()) {
+  // Helper to get game instance from current FEN
+  const getGame = (currentFen: string) => {
+    return new Chess(currentFen === "start" ? undefined : currentFen);
+  };
+
+  const updateStatus = (game: Chess) => {
+    if (game.isCheckmate()) {
+      setStatus(`Checkmate! ${game.turn() === "w" ? "Black" : "White"} wins.`);
+    } else if (game.isDraw()) {
       setStatus("Draw!");
-    } else if (chessGame.isCheck()) {
-      setStatus(`Check! ${chessGame.turn() === "w" ? "White" : "Black"} to move.`);
+    } else if (game.isCheck()) {
+      setStatus(`Check! ${game.turn() === "w" ? "White" : "Black"} to move.`);
     } else {
-      setStatus(`${chessGame.turn() === "w" ? "White" : "Black"} to move`);
+      setStatus(`${game.turn() === "w" ? "White" : "Black"} to move`);
     }
   };
 
-  function makeAMove(move: any) {
-    const gameCopy = new Chess(game.fen());
+  function onDrop(sourceSquare: string, targetSquare: string) {
     try {
-      const result = gameCopy.move(move);
-      if (result) {
-        setGame(gameCopy);
-        setMoveHistory((prev) => [...prev, result.san]);
-        updateStatus(gameCopy);
-        return result;
+      const game = getGame(fen);
+      
+      // Log attempt
+      const attemptMsg = `Move: ${sourceSquare} -> ${targetSquare}`;
+      setDebugLog(attemptMsg);
+
+      const move = game.move({
+        from: sourceSquare,
+        to: targetSquare,
+        promotion: "q",
+      });
+
+      if (move) {
+        setFen(game.fen());
+        setMoveHistory((prev) => [...prev, move.san]);
+        updateStatus(game);
+        setDebugLog(`${attemptMsg} (Success)`);
+        return true;
+      } else {
+        setDebugLog(`${attemptMsg} (Invalid via game rules)`);
       }
     } catch (e) {
-      return null;
+      setDebugLog(`Error: ${(e as Error).message}`);
+      return false;
     }
-    return null;
-  }
-
-  function onDrop(sourceSquare: string, targetSquare: string) {
-    const move = makeAMove({
-      from: sourceSquare,
-      to: targetSquare,
-      promotion: "q", // always promote to queen for simplicity
-    });
-
-    // illegal move
-    if (move === null) return false;
-    return true;
+    return false;
   }
 
   function resetGame() {
-    const newGame = new Chess();
-    setGame(newGame);
+    setFen("start");
     setMoveHistory([]);
     setStatus("White to move");
+    setDebugLog("Game reset");
   }
 
   function undoMove() {
-    const gameCopy = new Chess(game.fen());
-    gameCopy.undo();
-    setGame(gameCopy);
+    const game = getGame(fen);
+    game.undo();
+    setFen(game.fen());
     setMoveHistory((prev) => prev.slice(0, -1));
-    updateStatus(gameCopy);
+    updateStatus(game);
+    setDebugLog("Undo last move");
   }
 
   if (!mounted) {
-    return <div className="min-h-screen bg-neutral-950" />;
+    return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-neutral-500">Loading Chessboard...</div>;
   }
 
   return (
@@ -81,15 +89,21 @@ export default function Home() {
       <div className="max-w-4xl w-full flex flex-col md:flex-row gap-8 items-start justify-center">
         
         {/* Board Container */}
-        <div className="w-full max-w-[500px] aspect-square shadow-2xl rounded-lg overflow-hidden border border-neutral-800">
-          <Chessboard 
-            position={game.fen()} 
-            onPieceDrop={onDrop}
-            boardOrientation="white"
-            animationDuration={200}
-            customDarkSquareStyle={{ backgroundColor: "#262626" }}
-            customLightSquareStyle={{ backgroundColor: "#404040" }}
-          />
+        <div className="w-full max-w-[500px] flex flex-col gap-2">
+          <div className="aspect-square shadow-2xl rounded-lg overflow-hidden border border-neutral-800 bg-[#303030]">
+            <Chessboard 
+              position={fen} 
+              onPieceDrop={onDrop}
+              boardOrientation="white"
+              animationDuration={200}
+              customDarkSquareStyle={{ backgroundColor: "#262626" }}
+              customLightSquareStyle={{ backgroundColor: "#404040" }}
+            />
+          </div>
+          {/* Debug Log */}
+          <div className="text-xs font-mono text-neutral-500 bg-neutral-900 p-2 rounded border border-neutral-800">
+            Debug: {debugLog}
+          </div>
         </div>
 
         {/* Info & Controls */}
@@ -99,7 +113,7 @@ export default function Home() {
             <p className="text-neutral-400 text-sm mb-6">Built with Next.js & Chess.js</p>
             
             <div className="flex items-center gap-3 mb-6">
-              <div className={`w-3 h-3 rounded-full ${game.turn() === "w" ? "bg-white" : "bg-neutral-600"} border border-neutral-700`} />
+              <div className={`w-3 h-3 rounded-full ${status.includes("White") ? "bg-white" : "bg-neutral-600"} border border-neutral-700`} />
               <span className="font-medium text-lg">{status}</span>
             </div>
 
